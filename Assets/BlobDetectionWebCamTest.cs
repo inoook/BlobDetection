@@ -3,26 +3,31 @@ using System.Collections;
 
 using BlobDetectionNS;
 
-public class BlobDetectionTest : Processing
+public class BlobDetectionWebCamTest : Processing
 {
 
 	BlobDetection theBlobDetection;
 	PImage cam;
 	PImage img;
 	public Texture2D texture;
+	private WebCamTexture camTexture;
 	private PImage testPImage;
+
+
+	public int w = 320;
+	public int h = 240;
+
+	public float min = 0.01f;
 	
 	// Use this for initialization
 	void Start ()
 	{
 		Processing.SCREEN_W = Screen.width;
 		Processing.SCREEN_H = Screen.height;
-		
-		int w = texture.width;
-		int h = texture.height;
-		/*
-		texture = new Texture2D(320, 240);
-		*/
+
+		camTexture = new WebCamTexture();
+		camTexture.Play ();
+
 		cam = new PImage (w, h);
 		img = new PImage (w, h); // imgに対して輪郭抽出処理を行う
 		
@@ -33,10 +38,10 @@ public class BlobDetectionTest : Processing
 	
 	void OnApplicationQuit ()
 	{
-
+		if (camTexture != null) {
+			camTexture.Stop ();
+		}
 	}
-	
-	Texture2D tmpTexture;
 	public float threshold = 0.2f;
 	public int blur = 2;
 	// Update is called once per frame
@@ -44,6 +49,9 @@ public class BlobDetectionTest : Processing
 	{
 		base.Update();
 
+		theBlobDetection.min = min;
+
+		
 		//threshold
 		if (Input.GetKeyDown (KeyCode.S)) {
 			threshold += 0.01f;
@@ -51,7 +59,7 @@ public class BlobDetectionTest : Processing
 		if (Input.GetKeyDown (KeyCode.A)) {
 			threshold += -0.01f;
 		}
-		threshold = Mathf.Clamp (threshold, 0, 0.5f);
+		threshold = Mathf.Clamp (threshold, 0, 1.0f);
 		
 		// blur
 		if (Input.GetKeyDown (KeyCode.X)) {
@@ -60,24 +68,81 @@ public class BlobDetectionTest : Processing
 		if (Input.GetKeyDown (KeyCode.Z)) {
 			blur += -1;
 		}
-		blur = Mathf.Clamp (blur, 1, 10);
-		
-		
-		//		
+		blur = Mathf.Clamp (blur, 0, 10);
+
+		//
 		theBlobDetection.setThreshold (threshold); // will detect bright areas whose luminosity > 0.2f;
 		
 		// RESIZE
-		cam.SetPixelsBytes (texture.GetRawTextureData ());
-		
+//		tmpTexture.SetPixels32(camTexture.GetPixels32());
+//		Texture2D dstTexture = ScaleTexture(tmpTexture, 320, 240);
+//		cam.SetPixels32(dstTexture.GetPixels32());
+
+//		Color32[] colors = ScaleTextureColors(camTexture.GetPixels32(), camTexture.width, camTexture.height, w, h);
+//		cam.SetPixels32(colors);
+
+		byte[] colorBytes = ScaleTextureBytes(camTexture.GetPixels32(), camTexture.width, camTexture.height, w, h);
+		cam.SetPixelsBytes(colorBytes);
+
+
 		img.copy (cam);
 		fastblur (img, blur);
 		
 		theBlobDetection.computeBlobs (img.pixelsInt);
 		
 //		drawBlobsAndEdges (true, true);
-		drawBlobsAndEdges(640, 480);
 	}
 
+	// http://jon-martin.com/?p=114
+	private Texture2D ScaleTexture(Texture2D source,int targetWidth,int targetHeight) {
+		Texture2D result=new Texture2D(targetWidth,targetHeight, source.format, true);
+		
+		Color[] rpixels = new Color[targetWidth * targetHeight];
+		float incX=(1.0f / (float)targetWidth);
+		float incY=(1.0f / (float)targetHeight); 
+		for(int px=0; px<rpixels.Length; px++) { 
+			rpixels[px] = source.GetPixelBilinear(incX*((float)px%targetWidth), incY*((float)Mathf.Floor(px/targetWidth))); 
+		} 
+		result.SetPixels(rpixels,0);
+		result.Apply();
+		return result; 
+	}
+
+	private Color32[] ScaleTextureColors(Color32[] srcPixels, int srcWidth, int srcHeight, int dstWidth, int dstHeight) {
+		Color32[] dstPixels = new Color32[dstWidth * dstHeight];
+		float incX=(1.0f / (float)dstWidth);
+		float incY=(1.0f / (float)dstHeight);
+
+		for(int i = 0; i < dstPixels.Length; i++) {
+			int x = i % dstWidth;
+			int y = Mathf.FloorToInt(i/dstWidth);
+			int index = (int)(srcWidth * incX*((float)x)) + (int)(srcHeight * incY*((float)y)) * srcWidth;
+			dstPixels[i] = srcPixels[index];
+		} 
+		return dstPixels;
+	}
+
+	private byte[] ScaleTextureBytes(Color32[] srcPixels, int srcWidth, int srcHeight, int dstWidth, int dstHeight) {
+		byte[] dstPixels = new byte[dstWidth * dstHeight * 4];
+		float incX=(1.0f / (float)dstWidth);
+		float incY=(1.0f / (float)dstHeight);
+
+		byte[] srcBytes = Utils.Color32ArrayToByteArray(srcPixels);
+		int num = dstWidth * dstHeight;
+
+		for(int i = 0; i < num; i++) {
+			int x = i % dstWidth;
+			int y = Mathf.FloorToInt(i/dstWidth);
+			int index = (int)(srcWidth * incX*((float)x)) + (int)(srcHeight * incY*((float)y)) * srcWidth;
+			dstPixels[i*4+0] = srcBytes[index*4+0];
+			dstPixels[i*4+1] = srcBytes[index*4+1];
+			dstPixels[i*4+2] = srcBytes[index*4+2];
+			dstPixels[i*4+3] = srcBytes[index*4+3];
+		} 
+		return dstPixels;
+	}
+	
+	
 	public bool drawBlobs = true;
 	public bool drawEdges = true;
 
@@ -86,14 +151,6 @@ public class BlobDetectionTest : Processing
 		Blob b;
 		EdgeVertex eA, eB;
 		int num = theBlobDetection.getBlobNb ();
-
-		meshDrawer.Init();
-
-//		Vector3 t_pos0 = Camera.main.ScreenToWorldPoint(new Vector3( 0, 0, 10 ));
-//		Vector3 t_pos1 = Camera.main.ScreenToWorldPoint(new Vector3( Screen.width, Screen.height, 10 ));
-//		meshDrawer.DrawLine(t_pos0, t_pos1, Color.green);
-
-		Vector3 offset = new Vector3(-0.5f, -0.5f, 0);
 
 		for (int n=0; n < num; n++) {
 			b = theBlobDetection.getBlob (n);
@@ -105,11 +162,9 @@ public class BlobDetectionTest : Processing
 						eA = b.getEdgeVertexA (m);
 						eB = b.getEdgeVertexB (m);
 						if (eA != null && eB != null) {
-							Vector3 pos0 = new Vector3( eA.x, eA.y, 0 ) + offset;
-							Vector3 pos1 = new Vector3( eB.x, eB.y, 0 ) + offset;
-							meshDrawer.DrawLine(
-								pos0,
-								pos1,
+							glDrawer.DrawLine (
+								eA.x * width, (1 - eA.y) * height, 
+								eB.x * width, (1 - eB.y) * height,
 								Color.green
 								);
 						}
@@ -118,43 +173,32 @@ public class BlobDetectionTest : Processing
 				
 				// Blobs
 				if (drawBlobs) {
-					Vector3 rect_pos0 = (new Vector3( b.xMin, b.yMin, 0 )) + offset;
-					Vector3 rect_pos1 = (new Vector3( b.xMin + b.w, b.yMin, 0 )) + offset;
-					Vector3 rect_pos2 = (new Vector3( b.xMin + b.w, b.yMin + b.h, 0 )) + offset;
-					Vector3 rect_pos3 = (new Vector3( b.xMin, b.yMin + b.h, 0 )) + offset;
-					meshDrawer.DrawRect (
-						rect_pos0,
-						rect_pos1,
-						rect_pos2,
-						rect_pos3,
+					glDrawer.DrawRect (
+						b.xMin * width, (1 - b.yMin) * height,
+						b.w * width, -b.h * height,
 						Color.red
 						);
 				}
 				
 			}
 		}
-
-		meshDrawer.Render();
-
 	}
+	
 
-	public MeshDrawer meshDrawer;
-
+	public Drawer glDrawer;
+	
 	void OnGUI ()
 	{
-		
+
 		GUI.depth = 20;
 		
-		int width = 640;
-		int height = 480;
+		int width = camTexture.width;
+		int height = camTexture.height;
 		
-//		GUI.DrawTexture (new Rect (0, 0, width, height), texture);
-//		Graphics.DrawTexture(new Rect (8, 8, width, height), texture, null);
-
-//		CreateLineMaterial();
+		GUI.DrawTexture (new Rect (0, 0, width, height), camTexture);
 		
 		// drawBlobsAndEdges --------------
-//		drawBlobsAndEdges(width, height);
+		drawBlobsAndEdges(width, height);
 		
 		string str = "threshold: " + threshold.ToString ("0.00") + " (A, S)\n";
 		str += "blur: " + blur.ToString () + " (Z, X)";
@@ -173,7 +217,7 @@ public class BlobDetectionTest : Processing
 				Rect rect = new Rect(b.xMin * width, (1 - b.yMin) * height,
 					                 b.w * width, -b.h * height);
 
-				GUI.Label(new Rect(rect.x, rect.y, 200,200), "#"+n);
+				GUI.Label(new Rect(rect.x + rect.width/2, rect.y + rect.height/2, 200,200), "#"+n + "/ id: "+b.id + " / "+ (b.w*b.h));
 			}
 		}
 	}
@@ -255,9 +299,9 @@ public class BlobDetectionTest : Processing
 			yi = x;
 			
 			for (y=0; y<h; y++) {
-				data [yi * 4 + 0] = (byte)(dv [rsum]);
-				data [yi * 4 + 1] = (byte)(dv [gsum]);
-				data [yi * 4 + 2] = (byte)(dv [bsum]);
+				data [yi * 4 + 0] = (dv [rsum]);
+				data [yi * 4 + 1] = (dv [gsum]);
+				data [yi * 4 + 2] = (dv [bsum]);
 				data [yi * 4 + 3] = 0xff;
 				
 				if (x == 0) {

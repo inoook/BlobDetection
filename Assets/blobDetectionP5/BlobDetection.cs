@@ -21,6 +21,8 @@ namespace BlobDetectionNS
 		public bool[]  			gridVisited;
 		public int					blobWidthMin, blobHeightMin;
 	
+		public float min = 0.0f;
+
 		//	--------------------------------------------
 		// Constructor
 		//	--------------------------------------------
@@ -149,37 +151,37 @@ namespace BlobDetectionNS
 			blob [iBlob].yMax = -1000.0f;
 			blob [iBlob].nbLine = 0; 
 
-	
 			// Find it !!    
 			computeEdgeVertex (iBlob, x, y);
-			{
-	
-				// > This is just a temp patch (somtimes 'big' blobs are detected on the grid edges)
 
-				if (blob [iBlob].xMin >= 1000.0f || blob [iBlob].xMax <= -1000.0f || blob [iBlob].yMin >= 1000.0f || blob [iBlob].yMax <= -1000.0f)
+			// > This is just a temp patch (somtimes 'big' blobs are detected on the grid edges)
+
+			if (blob [iBlob].xMin >= 1000.0f || blob [iBlob].xMax <= -1000.0f || blob [iBlob].yMin >= 1000.0f || blob [iBlob].yMax <= -1000.0f){
+				blobNumber--;
+			}else {
+				blob [iBlob].update ();
+				if(blob [iBlob].w * blob [iBlob].h < min){
 					blobNumber--;
-				else {
-					blob [iBlob].update ();
-					// User Filter
-					if (filterBlobMethod != null) {
-						try {
-							// ????
-							/*
-        		bool returnObj = (bool)(filterBlobMethod.invoke(parent, new Object[]{ blob[iBlob] } ));
-        		bool returnValue = returnObj.booleanValue();
-        		*/
-							Debug.Log ("use filterBlobMethod");
-							
-							bool returnValue = false;
-							if (returnValue == false)
-								blobNumber--;    
-						} catch (Exception e) {
-							Debug.Log ("Disabling filterBlobMethod() because of an error. " + e);
-							filterBlobMethod = null;
-						}
+				}
+				
+				// User Filter
+				if (filterBlobMethod != null) {
+					try {
+						// ????
+						/*
+    		bool returnObj = (bool)(filterBlobMethod.invoke(parent, new Object[]{ blob[iBlob] } ));
+    		bool returnValue = returnObj.booleanValue();
+    		*/
+						Debug.Log ("use filterBlobMethod");
+						
+						bool returnValue = false;
+						if (returnValue == false)
+							blobNumber--;    
+					} catch (Exception e) {
+						Debug.Log ("Disabling filterBlobMethod() because of an error. " + e);
+						filterBlobMethod = null;
 					}
 				}
-
 			}
 
 

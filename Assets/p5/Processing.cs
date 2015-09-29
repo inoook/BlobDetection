@@ -61,14 +61,14 @@ public class Processing : MonoBehaviour
 		HSB
 	}
 
-	public ColorMode currentColorMode = ColorMode.RGB;
+//	public ColorMode currentColorMode = ColorMode.RGB;
 	private float m_range1;
 	private float m_range2;
 	private float m_range3;
 	
 	public void colorMode (ColorMode mode)
 	{
-		currentColorMode = mode;
+//		currentColorMode = mode;
 	}
 
 	public void colorMode (ColorMode mode, float range)

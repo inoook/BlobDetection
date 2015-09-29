@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections;
 
-public class GLdrawer : MonoBehaviour
+public class GLDrawer : Drawer
 {
 
 	static Material lineMaterial;
@@ -26,7 +26,7 @@ public class GLdrawer : MonoBehaviour
 
 	}
 
-	public void GL_line (float x0, float y0, float x1, float y1, Color color)
+	public override void DrawLine (float x0, float y0, float x1, float y1, Color color)
 	{
 		CreateLineMaterial ();
 
@@ -44,7 +44,7 @@ public class GLdrawer : MonoBehaviour
 		GL.PopMatrix ();
 	}
 
-	public void GL_rect (float xMin, float yMin, float w, float h, Color color)
+	public override void DrawRect (float xMin, float yMin, float w, float h, Color color)
 	{
 		CreateLineMaterial ();
 
