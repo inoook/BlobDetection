@@ -10,3 +10,4 @@ https://code.google.com/p/redlib-as3/source/browse/trunk/src/org/redblind/bitmap
 その他参考  
 http://thomasdiewald.com/blog/?p=1107  
 http://thomasdiewald.com/processing/libraries/diewald_CV_kit/  
+https://github.com/diwi/diewald_CV_kit/tree/master/diewald_CV_kit/src  
